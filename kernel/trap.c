@@ -212,6 +212,7 @@ devintr()
     // timer interrupt.
     clockintr();
     update_energy_accounting(); // update energy accounting after ticks are incremented
+update_thermal();
     return 2;
   } else {
     return 0;

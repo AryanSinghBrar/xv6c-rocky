@@ -43,3 +43,6 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("getenergyinfo");
+entry("setheatclass");
+entry("gettemp");
+

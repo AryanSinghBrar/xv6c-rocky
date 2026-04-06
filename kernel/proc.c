@@ -14,6 +14,8 @@ struct proc proc[NPROC];
 struct proc *initproc;
 
 int nextpid = 1;
+int cpu_temp = 30;
+int running_count=0;
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -153,6 +155,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+p->heatclass = 1;
+p->skipcount = 0;
   return p;
 }
 
@@ -448,13 +452,27 @@ scheduler(void)
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
+
+    if(cpu_temp >= TEMP_HOT && p->heatclass == 2){
+      release(&p->lock);
+      continue;
+    }
+    if(cpu_temp >= TEMP_NORMAL && cpu_temp < TEMP_HOT && p->heatclass == 2){
+      p->skipcount = (p->skipcount + 1) % 3;
+      if(p->skipcount != 0){
+        release(&p->lock);
+        continue;
+      }
+    }
+
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        swtch(&c->context, &p->context);
-
+running_count++;     
+   swtch(&c->context, &p->context);
+running_count--;
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
@@ -468,6 +486,20 @@ scheduler(void)
     }
   }
 }
+
+
+void
+update_thermal(void)
+{
+  if(running_count > 0)
+    cpu_temp += running_count * TEMP_HEAT_RATE;
+  else
+    cpu_temp -= TEMP_COOL_RATE;
+
+  if(cpu_temp < 0)   cpu_temp = 0;
+  if(cpu_temp > 110) cpu_temp = 110;
+}
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
